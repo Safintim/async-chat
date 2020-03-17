@@ -24,13 +24,13 @@ async def wait_for_data(host, port, filepath):
                     current_datetime, 'Установлено соединение',
                 ),
             )
-
+            attempts_count = 0      
             while True:
                 current_datetime = datetime.now().strftime(FORMAT_TIME)
-                msg = await reader.read(200)
+                msg = await reader.readline()
                 await _file.write(
                     TEMPLATE_MSG.format(
-                        current_datetime, msg.decode(),
+                        current_datetime, msg.decode().strip(),
                     ),
                 )
         except (ConnectionRefusedError, ConnectionResetError):
@@ -49,7 +49,6 @@ async def wait_for_data(host, port, filepath):
                     ),
                 )
                 await asyncio.sleep(TIME_BETWEEN_ATTEMPTS)
-                attempts_count = 0
 
 
 def create_parser():

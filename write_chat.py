@@ -10,8 +10,6 @@ logger = logging.getLogger('sender')
 
 
 def processing_message(msg):
-    logger.debug('processing_message')
-    logger.debug(msg.decode())
     msg, *_ = msg.decode().split('\n')
     msg = json.loads(msg)
     return msg
@@ -23,12 +21,13 @@ async def write(writer, msg):
 
 
 async def authorise(reader, writer, token):
-    logger.debug('authorise')
     await write(writer, token)
     logger.debug(token)
-    message = await reader.read(200)
-    logger.debug(message)
+
+    message = await reader.readline()
     message = processing_message(message)
+    logger.debug(message)
+
     return bool(message)
 
 
@@ -38,7 +37,12 @@ async def register(reader, writer):
     await write(writer, nickname)
     logger.debug(nickname)
 
-    message = await reader.read(200)
+    message = await reader.readline()
+    logger.debug(message)
+
+    message = await reader.readline()
+    logger.debug(message)
+
     message = processing_message(message)
     logger.debug(message)
 
@@ -54,13 +58,16 @@ async def write_to_chat(host, port, token, message):
     reader, writer = await asyncio.open_connection(
             host=host, port=port,
     )
-    response = await reader.read(200)
-    logger.debug(response)
+
+    response = await reader.readline()
+    logger.debug(response.decode())
+
     if not await authorise(reader, writer, token):
         logger.debug('Неизвестный токен. Проверьте его или зарегистрируйте заново.')
         token = await register(reader, writer)
         logger.debug('Новый токен: {}'.format(token))
         writer.close()
+
     await submit_message(writer, message)
     writer.close()
 
@@ -76,6 +83,7 @@ def create_parser():
 
 if __name__ == '__main__':
     load_dotenv()
+
     handler = logging.StreamHandler()
     formatter = logging.Formatter('%(levelname)s:%(name)s:%(message)s')
     handler.setFormatter(formatter)
