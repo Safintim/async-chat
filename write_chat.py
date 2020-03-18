@@ -88,7 +88,7 @@ if __name__ == '__main__':
 
     asyncio.run(write_to_chat(
         host=namespace.host,
-        port=5050,
+        port=namespace.port,
         token=namespace.token,
         message=namespace.message
     ))
