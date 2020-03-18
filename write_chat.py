@@ -5,18 +5,19 @@ import json
 import configargparse
 from dotenv import load_dotenv
 
+from tools import connect_socket
 
 logger = logging.getLogger('sender')
 
 
-def processing_message(msg):
-    msg, *_ = msg.decode().split('\n')
-    msg = json.loads(msg)
-    return msg
+def handle_message(_bytes):
+    text, *_ = _bytes.decode().split('\n')
+    message = json.loads(text)
+    return message
 
 
-async def write(writer, msg):
-    writer.write(msg.encode())
+async def write(writer, message):
+    writer.write(message.encode())
     writer.write('\n\n'.encode())
 
 
@@ -25,7 +26,7 @@ async def authorise(reader, writer, token):
     logger.debug(token)
 
     message = await reader.readline()
-    message = processing_message(message)
+    message = handle_message(message)
     logger.debug(message)
 
     return bool(message)
@@ -49,27 +50,19 @@ async def register(reader, writer):
     return message.get('account_hash')
 
 
-async def submit_message(writer, message):
-    await write(writer, message)
-    logger.debug(message)
-
-
 async def write_to_chat(host, port, token, message):
-    reader, writer = await asyncio.open_connection(
-            host=host, port=port,
-    )
+    async with connect_socket(host, port) as (reader, writer):
+        response = await reader.readline()
+        logger.debug(response.decode())
 
-    response = await reader.readline()
-    logger.debug(response.decode())
+        if not await authorise(reader, writer, token):
+            logger.debug('Неизвестный токен. Проверьте его или зарегистрируйте заново.')
+            token = await register(reader, writer)
+            logger.debug('Новый токен: {}'.format(token))
+            writer.close()
 
-    if not await authorise(reader, writer, token):
-        logger.debug('Неизвестный токен. Проверьте его или зарегистрируйте заново.')
-        token = await register(reader, writer)
-        logger.debug('Новый токен: {}'.format(token))
-        writer.close()
-
-    await submit_message(writer, message)
-    writer.close()
+        await write(writer, message)
+        logger.debug(message)
 
 
 def create_parser():
