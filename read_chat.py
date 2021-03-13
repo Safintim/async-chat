@@ -12,42 +12,33 @@ TIME_BETWEEN_ATTEMPTS = 3
 FORMAT_TIME = '[%d.%m.%y %H:%M]'
 TEMPLATE_MSG = '{0} {1}\n'
 
+def get_datetime_now(format=FORMAT_TIME):
+    return datetime.now().strftime(format)
+
+
+async def write_message(file_obj, *template_params, template=TEMPLATE_MSG):
+    await file_obj.write(template.format(*template_params))
+
 
 async def wait_for_data(host, port, filepath):
     attempts_count = 0
     async with aiofiles.open(filepath, mode='a') as _file:
         async with connect_socket(host, port) as (reader, writer):
             try:
-                current_datetime = datetime.now().strftime(FORMAT_TIME)
-                await _file.write(
-                    TEMPLATE_MSG.format(
-                        current_datetime, 'Установлено соединение',
-                    ),
-                )
+                await write_message(_file, get_datetime_now(), 'Установлено соединение')
                 attempts_count = 0
                 while True:
                     msg = await reader.readline()
-                    current_datetime = datetime.now().strftime(FORMAT_TIME)
-                    await _file.write(
-                        TEMPLATE_MSG.format(
-                            current_datetime, msg.decode().strip(),
-                        ),
-                    )
+                    await write_message(_file, get_datetime_now(), msg.decode().strip())
             except (ConnectionRefusedError, ConnectionResetError):
-                current_datetime = datetime.now().strftime(FORMAT_TIME)
+                current_datetime = get_datetime_now()
                 attempts_count += 1
-                await _file.write(TEMPLATE_MSG.format(
-                    current_datetime, 'Нет соединения. Повторная попытка.',
-                ))
+                await write_message(_file, current_datetime, 'Нет соединения. Повторная попытка.')
                 if attempts_count >= NUMBER_POSSIBLE_ATTEMPTS:
                     message = 'Повторная попытка через {0} сек'.format(
                         TIME_BETWEEN_ATTEMPTS,
                     )
-                    await _file.write(
-                        TEMPLATE_MSG.format(
-                            current_datetime, message,
-                        ),
-                    )
+                    await write_message(_file, current_datetime, message)
                     await asyncio.sleep(TIME_BETWEEN_ATTEMPTS)
 
 
